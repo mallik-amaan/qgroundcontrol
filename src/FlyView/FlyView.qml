@@ -26,6 +26,9 @@ Item {
     property var guidedController: _guidedController
 
 
+    property bool tcpConnecting: false
+    property string tcpConnectionState: "disconnected"
+    property string tcpErrorMessage: ""
 
 
     QGCPalette {
@@ -100,6 +103,49 @@ Item {
             pipView: _pipView
         }
 
+        MouseArea {
+            id: tcpClickArea
+
+            anchors.fill: parent
+
+            acceptedButtons: Qt.LeftButton
+
+            propagateComposedEvents: true
+
+            onClicked: function(mouse) {
+
+                var x = Math.round(mouse.x)
+                var y = Math.round(mouse.y)
+
+                console.log(
+                    "TCP: FlyView clicked:",
+                    x,
+                    y
+                )
+
+                if (tcpConnectionState === "connected") {
+
+                    var clickMessage =
+                        "CLICK," +
+                        x +
+                        "," +
+                        y +
+                        "\n"
+
+                    console.log(
+                        "TCP: Sending:",
+                        clickMessage
+                    )
+
+                    TcpManager.sendMessage(
+                        clickMessage
+                    )
+                }
+
+                // Do not consume the click
+                mouse.accepted = false
+            }
+        }
         PipView {
             id: _pipView
 
@@ -162,6 +208,437 @@ Item {
             visible: !QGroundControl.videoManager.fullScreen
         }
 
+
+        // ============================================================
+        // TCP CONTROL
+        // ============================================================
+
+        Item {
+            id: tcpControl
+
+            width: 600
+
+            height: tcpServerPanel.visible
+                    ? tcpServerPanel.height + customTCPServerButton.height + 5
+                    : customTCPServerButton.height
+
+            anchors.top: parent.top
+            anchors.topMargin: toolbar.height + 20
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            z: QGroundControl.zOrderWidgets
+
+
+            // --------------------------------------------------------
+            // TCP SERVER BUTTON
+            // --------------------------------------------------------
+
+            QGCButton {
+                id: customTCPServerButton
+
+                width: 160
+                height: 40
+
+                anchors.top: parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                property bool showTcpServerDetails: false
+
+                text: qsTr("TCP Server")
+
+                onClicked: {
+                    showTcpServerDetails = !showTcpServerDetails
+                }
+            }
+
+
+            // --------------------------------------------------------
+            // TCP SERVER PANEL
+            // --------------------------------------------------------
+
+            Rectangle {
+                id: tcpServerPanel
+
+                width: 600
+                height: 400
+
+                anchors.top: customTCPServerButton.bottom
+                anchors.topMargin: 5
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                visible: customTCPServerButton.showTcpServerDetails
+
+                color: qgcPal.window
+
+                border.color: qgcPal.text
+                border.width: 1
+
+                radius: ScreenTools.defaultBorderRadius
+
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 15
+
+                    spacing: 10
+
+
+                    // ====================================================
+                    // TITLE
+                    // ====================================================
+
+                    QGCLabel {
+                        text: qsTr("TCP Connection")
+
+                        font.bold: true
+
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+
+
+                    Rectangle {
+                        Layout.fillWidth: true
+
+                        height: 1
+
+                        color: qgcPal.text
+                    }
+
+
+                    // ====================================================
+                    // IP ADDRESS
+                    // ====================================================
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: tcpConnectionState !== "connected"
+                        spacing: 10
+
+                        QGCLabel {
+                            text: qsTr("IP Address:")
+
+                            Layout.preferredWidth: 100
+                        }
+
+                        QGCTextField {
+                            id: ipAddressField
+                            Layout.fillWidth: true
+
+                            text: "127.0.0.1"
+
+                            placeholderText: qsTr("Enter IP address")
+                        }
+                    }
+
+
+                    // ====================================================
+                    // PORT
+                    // ====================================================
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: tcpConnectionState !== "connected"
+                        spacing: 10
+
+                        QGCLabel {
+                            text: qsTr("Port:")
+
+                            Layout.preferredWidth: 100
+                        }
+
+                        QGCTextField {
+                            id: portField
+
+                            Layout.fillWidth: true
+
+                            text: "5000"
+
+                            placeholderText: qsTr("Enter port")
+
+                            inputMethodHints: Qt.ImhDigitsOnly
+                        }
+                    }
+
+
+                    // ====================================================
+                    // CONNECT BUTTON
+                    // ====================================================
+
+                    QGCButton {
+                        id: connectButton
+                        visible: tcpConnectionState !== "connected"
+                        width: 160
+                        height: 40
+
+                        Layout.alignment: Qt.AlignHCenter
+
+                        text: tcpConnecting
+                              ? qsTr("Connecting...")
+                              : qsTr("Connect")
+
+                        enabled: !tcpConnecting
+
+                        onClicked: {
+
+                            if (ipAddressField.text.length === 0 ||
+                                portField.text.length === 0) {
+
+                                tcpErrorMessage =
+                                    qsTr("IP address and port are required.")
+
+                                tcpConnectionState = "error"
+
+                                return
+                            }
+
+
+                            tcpConnecting = true
+
+                            tcpConnectionState = "connecting"
+
+                            tcpErrorMessage = ""
+
+
+                            console.log(
+                                "Connecting to:",
+                                ipAddressField.text,
+                                portField.text
+                            )
+
+
+                            TcpManager.connectToServer(
+                                ipAddressField.text,
+                                Number(portField.text)
+                            )
+                        }
+                    }
+
+
+                    // ====================================================
+                    // CONNECTION STATUS
+                    // ====================================================
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+
+                        // ------------------------------------------------
+                        // LOADING
+                        // ------------------------------------------------
+
+                        Column {
+                            anchors.centerIn: parent
+
+                            spacing: 10
+
+                            visible: tcpConnectionState === "connecting"
+
+
+                            BusyIndicator {
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                running: true
+
+                                width: 50
+                                height: 50
+                            }
+
+
+                            QGCLabel {
+                                text: qsTr("Connecting to server...")
+
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
+
+
+                        // ------------------------------------------------
+                        // ERROR
+                        // ------------------------------------------------
+
+                        Rectangle {
+                            anchors.fill: parent
+
+                            visible: tcpConnectionState === "error"
+
+                            color: qgcPal.window
+
+                            border.color: qgcPal.text
+
+                            border.width: 1
+
+                            radius: ScreenTools.defaultBorderRadius
+
+
+                            Column {
+                                anchors.centerIn: parent
+
+                                spacing: 10
+
+                                width: parent.width - 40
+
+
+                                QGCLabel {
+                                    text: qsTr("Connection Failed")
+
+                                    font.bold: true
+
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                }
+
+
+                                QGCLabel {
+                                    text: tcpErrorMessage
+
+                                    wrapMode: Text.Wrap
+
+                                    horizontalAlignment: Text.AlignHCenter
+
+                                    width: parent.width
+                                }
+
+
+                                QGCButton {
+                                    text: qsTr("Try Again")
+
+                                    anchors.horizontalCenter: parent.horizontalCenter
+
+                                    onClicked: {
+                                        tcpConnectionState = "connecting"
+                                        console.log("Attempting TCP connection:", ipAddressField.text, portField.text)
+                                        tcpConnecting = true
+
+                                        TcpManager.connectToServer(
+                                            ipAddressField.text,
+                                            Number(portField.text)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+
+                        // ------------------------------------------------
+                        // CONNECTED WINDOW
+                        // ------------------------------------------------
+
+                        ColumnLayout {
+                            anchors.fill: parent
+
+                            spacing: 8
+
+                            visible: tcpConnectionState === "connected"
+
+
+                            RowLayout {
+                                Layout.fillWidth: true
+
+                                Layout.alignment: Qt.AlignHCenter
+
+                                spacing: 10
+
+
+                                QGCButton {
+                                    width: 160
+                                    height: 40
+
+                                    text: qsTr("TCP Action A")
+
+                                    onClicked: {
+                                        TcpManager.sendMessage(
+                                            "Button A Clicked"
+                                        )
+                                    }
+                                }
+
+
+                                QGCButton {
+                                    width: 160
+                                    height: 40
+
+                                    text: qsTr("TCP Action B")
+
+                                    onClicked: {
+                                        TcpManager.sendMessage(
+                                            "Button B Clicked"
+                                        )
+                                    }
+                                }
+
+
+                                QGCButton {
+                                    width: 160
+                                    height: 40
+
+                                    text: qsTr("TCP Action C")
+
+                                    onClicked: {
+                                        TcpManager.sendMessage(
+                                            "Button C Clicked"
+                                        )
+                                    }
+                                }
+                            }
+
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+
+                                color: qgcPal.window
+
+                                border.color: qgcPal.text
+
+                                border.width: 1
+
+                                radius: ScreenTools.defaultBorderRadius
+
+                                clip: true
+
+
+                                ScrollView {
+                                    anchors.fill: parent
+
+                                    anchors.margins: 4
+
+
+                                    TextArea {
+                                        id: serverMessageBox
+
+                                        readOnly: true
+
+                                        wrapMode: TextArea.Wrap
+
+                                        text: ""
+
+                                        selectByMouse: true
+                                    }
+                                }
+                            }
+                                QGCButton {
+                                    width: 160
+                                    height: 40
+
+                                    Layout.alignment: Qt.AlignHCenter
+
+                                    visible: tcpConnectionState === "connected"
+
+                                    text: qsTr("Disconnect")
+
+                                    onClicked: {
+                                        console.log("TCP: Disconnecting from server")
+
+                                        tcpConnectionState = "disconnected"
+                                        TcpManager.disconnectFromServer()
+                                    }
+                                }
+
+                        }
+                    }
+                }
+            }
+        }
 
         // ============================================================
         // SENSOR CONTROL
@@ -407,6 +884,71 @@ Item {
             }
         }
 
+
+        // ============================================================
+        // TCP SIGNAL CONNECTIONS
+        // ============================================================
+
+        Connections {
+            target: TcpManager
+
+            function onConnected() {
+                console.log("TCP: Connected to server")
+
+                tcpConnecting = false
+                tcpConnectionState = "connected"
+                tcpErrorMessage = ""
+
+                // Send FlyView coordinate-space dimensions
+                var flyViewWidth = Math.round(width)
+                var flyViewHeight = Math.round(height)
+
+                var sizeMessage =
+                    "SIZE," +
+                    flyViewWidth +
+                    "," +
+                    flyViewHeight +
+                    "\n"
+
+                console.log(
+                    "TCP: Sending FlyView size:",
+                    flyViewWidth,
+                    "x",
+                    flyViewHeight
+                )
+
+                TcpManager.sendMessage(sizeMessage)
+            }
+
+            function onDisconnected() {
+                console.log("TCP: Disconnected from server")
+
+                tcpConnecting = false
+
+                if (tcpConnectionState !== "connected") {
+                    tcpConnectionState = "error"
+                    tcpErrorMessage =
+                        qsTr("Connection to the server was lost.")
+                }
+            }
+
+            function onMessageReceived(message) {
+                console.log("TCP message received:", message)
+
+                serverMessageBox.text += message + "\n"
+
+                serverMessageBox.cursorPosition =
+                    serverMessageBox.length
+            }
+
+            function onErrorOccurred(error) {
+                console.log("TCP error:", error)
+
+                tcpConnecting = false
+                tcpConnectionState = "error"
+                tcpErrorMessage = error.toString()
+            }
+        }
     }
 
 

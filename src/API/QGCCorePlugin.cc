@@ -14,6 +14,7 @@
 #include "HorizontalFactValueGrid.h"
 #include "InstrumentValueData.h"
 #include "JoystickManager.h"
+#include "src/TCP/TcpManager.h"
 #include "QGCLoggingCategory.h"
 #include "QGCOptions.h"
 #include "QmlComponentInfo.h"
@@ -299,6 +300,10 @@ QQmlApplicationEngine *QGCCorePlugin::createQmlApplicationEngine(QObject *parent
 {
     QQmlApplicationEngine *const qmlEngine = new QQmlApplicationEngine(parent);
     qmlEngine->addImportPath(QStringLiteral("qrc:/qml"));
+
+    TcpManager* tcpManager = new TcpManager(qmlEngine);
+
+    qmlEngine->rootContext()->setContextProperty(QStringLiteral("TcpManager"), tcpManager);
     qmlEngine->rootContext()->setContextProperty(QStringLiteral("joystickManager"), JoystickManager::instance());
     return qmlEngine;
 }

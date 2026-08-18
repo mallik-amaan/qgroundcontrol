@@ -104,8 +104,17 @@ Item {
             property real clickY: 0
 
             onTriggered: {
-                onScreenGimbalController.mouseClicked(clickX, clickY)
-                cameraTrackingController.mouseClicked(clickX, clickY)
+                // console.log("VIDEO CLICK:", clickX, clickY)
+
+                // onScreenGimbalController.mouseClicked(clickX, clickY)
+                // cameraTrackingController.mouseClicked(clickX, clickY)
+
+                // console.log("VIDEO TCP SEND:", clickX, clickY)
+
+
+                TcpManager.sendMessage(
+                       "CLICK," + clickX + "," + clickY + "\n"
+                   )
             }
         }
 
@@ -146,6 +155,13 @@ Item {
                 // Second release of a double-click - fullscreen toggle already handled
                 _doubleClicked = false
             } else {
+                            // Send every click immediately
+                                   console.log("VIDEO TCP SEND:", mouse.x, mouse.y)
+
+                                   TcpManager.sendMessage(
+                                       "CLICK," + mouse.x + "," + mouse.y + "\n"
+                                   )
+
                 singleClickTimer.clickX = mouse.x
                 singleClickTimer.clickY = mouse.y
                 singleClickTimer.restart()

@@ -22,6 +22,10 @@ qt_add_qml_module(QGroundControlModule
     IMPORTS
         QGC
     NO_PLUGIN
+    SOURCES TCP/TcpClient.cpp
+    SOURCES TCP/TcpClient.h
+    SOURCES TCP/TcpManager.h
+    SOURCES TCP/TcpManager.cpp
 )
 
 if(IOS)
