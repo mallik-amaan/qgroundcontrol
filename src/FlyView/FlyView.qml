@@ -42,6 +42,8 @@ Item {
     }
 
     property bool _mainWindowIsMap: mapControl.pipState.state === mapControl.pipState.fullState
+    // When set, exiting stream-2 full screen restores stream 1 (instead of the map) to full.
+    property bool _exitRestoreVideo1: false
     property bool _isFullWindowItemDark: _mainWindowIsMap ? mapControl.isSatelliteMap : true
     property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property var _missionController: _planController.missionController
@@ -103,6 +105,11 @@ Item {
             pipView: _pipView
         }
 
+        FlyViewVideoSecond {
+            id: videoControl2
+            pipView: _pipView2
+            visible: QGroundControl.videoManager.hasVideo2
+        }
         MouseArea {
             id: tcpClickArea
 
@@ -164,6 +171,16 @@ Item {
                       mapControl.pipState.state === mapControl.pipState.pipState
                   )
 
+            // While the second video is full this box holds stream 1; clicking it exits stream 2
+            // full and restores stream 1 to full screen (handled by onPipClick).
+            onPipClick: function() {
+                if (videoControl2.pipState.state === videoControl2.pipState.fullState) {
+                    _exitRestoreVideo1 = true
+                    videoControl2.pipState.state = videoControl2.pipState.pipState
+                } else {
+                    _pipView._swapPip()
+                }
+            }
 
             z: QGroundControl.zOrderWidgets
 
@@ -171,7 +188,81 @@ Item {
             property real bottomEdgeLeftInset: visible ? height + anchors.margins : 0
         }
 
+        PipView {
+            id: _pipView2
 
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: _toolsMargin
+
+            item1IsFullSettingsKey: "SecondVideoIsFull"
+            item1IsFullDefault: false
+            pipExpandedSettingsKey: "SecondVideoIsExpanded"
+            item1: videoControl2
+            item2: null
+            showWhenItem1Full: true
+
+            show: QGroundControl.videoManager.hasVideo2 &&
+                  !QGroundControl.videoManager.fullScreen
+
+            z: QGroundControl.zOrderWidgets
+        }
+
+        // Coordinate map <-> second video pip states. While video 2 is full the map is shown in
+        // the bottom-right pip box (_pipView2) so the box previews what clicking it restores;
+        // video 1 stays pip'd in the bottom-left box (_pipView). Clicking either box exits
+        // stream 2 full: the map box restores the map, the video-1 box restores stream 1.
+        // QML only re-applies a PipState's parent/anchors when the state changes, so after
+        // moving the map to a different pipView we bounce its state to force the re-parent.
+        Connections {
+            target: videoControl2.pipState
+
+            function onStateChanged() {
+                if (videoControl2.pipState.state === videoControl2.pipState.fullState) {
+                    if (mapControl.pipView !== _pipView2) {
+                        mapControl.pipView = _pipView2
+                    }
+                    if (mapControl.pipState.state === mapControl.pipState.fullState) {
+                        mapControl.pipState.state = mapControl.pipState.pipState
+                    } else {
+                        mapControl.pipState.state = mapControl.pipState.fullState
+                        mapControl.pipState.state = mapControl.pipState.pipState
+                    }
+                    if (videoControl.pipView !== _pipView) {
+                        videoControl.pipView = _pipView
+                        videoControl.pipState.state = videoControl.pipState.fullState
+                        videoControl.pipState.state = videoControl.pipState.pipState
+                    } else if (videoControl.pipState.state === videoControl.pipState.fullState) {
+                        videoControl.pipState.state = videoControl.pipState.pipState
+                    }
+                } else if (videoControl2.pipState.state === videoControl2.pipState.pipState) {
+                    if (_exitRestoreVideo1) {
+                        // Restore stream 1 to full screen; the map returns to the bottom-left box.
+                        _exitRestoreVideo1 = false
+                        if (mapControl.pipView !== _pipView) {
+                            mapControl.pipView = _pipView
+                        }
+                        mapControl.pipState.state = mapControl.pipState.fullState
+                        mapControl.pipState.state = mapControl.pipState.pipState
+                        if (videoControl.pipView !== _pipView) {
+                            videoControl.pipView = _pipView
+                        }
+                        videoControl.pipState.state = videoControl.pipState.fullState
+                    } else {
+                        // Restore the map to full screen; stream 1 stays pip'd bottom-left.
+                        if (mapControl.pipView !== _pipView) {
+                            mapControl.pipView = _pipView
+                        }
+                        mapControl.pipState.state = mapControl.pipState.fullState
+                        if (videoControl.pipView !== _pipView) {
+                            videoControl.pipView = _pipView
+                            videoControl.pipState.state = videoControl.pipState.fullState
+                            videoControl.pipState.state = videoControl.pipState.pipState
+                        }
+                    }
+                }
+            }
+        }
 
         FlyViewWidgetLayer {
             id: widgetLayer
@@ -964,5 +1055,4 @@ Item {
         visible: !QGroundControl.videoManager.fullScreen
     }
 }
-
 

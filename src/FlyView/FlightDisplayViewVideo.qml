@@ -7,8 +7,8 @@ import QGroundControl.FlightMap
 import QGroundControl.Controls
 
 Item {
-    id:     root
-    clip:   true
+    id:   root
+    clip: true
 
     property bool useSmallFont: true
 
@@ -31,6 +31,8 @@ Item {
     property bool   _isMode_FILL:       _fitMode === 2
     property bool   _isMode_NO_CROP:    _fitMode === 3
 
+    property bool   _anyStream:         _showStreamLoader || _showUvcLoader
+
     function getWidth() {
         return videoBackground.getWidth()
     }
@@ -38,166 +40,123 @@ Item {
         return videoBackground.getHeight()
     }
 
-    property double _thermalHeightFactor: 0.85 //-- TODO
+    property double _thermalHeightFactor: 0.85
 
-        Image {
-            id:             noVideo
-            anchors.fill:   parent
-            source:         "/res/NoVideoBackground.jpg"
-            fillMode:       Image.PreserveAspectCrop
-            visible:        !_showStreamLoader && !_showUvcLoader
+    // No Video Background
+    Image {
+        id:             noVideo
+        anchors.fill:   parent
+        source:         "/res/NoVideoBackground.jpg"
+        fillMode:       Image.PreserveAspectCrop
+        visible:        !root._anyStream
 
-            Rectangle {
-                anchors.centerIn:   parent
-                width:              noVideoLabel.contentWidth + ScreenTools.defaultFontPixelHeight
-                height:             noVideoLabel.contentHeight + ScreenTools.defaultFontPixelHeight
-                radius:             ScreenTools.defaultFontPixelWidth / 2
-                color:              "black"
-                opacity:            0.5
-            }
-
-            QGCLabel {
-                id:                 noVideoLabel
-                text:               QGroundControl.settingsManager.videoSettings.streamEnabled.rawValue ? qsTr("WAITING FOR VIDEO") : qsTr("VIDEO DISABLED")
-                font.bold:          true
-                color:              "white"
-                font.pointSize:     useSmallFont ? ScreenTools.smallFontPointSize : ScreenTools.largeFontPointSize
-                anchors.centerIn:   parent
-            }
+        Rectangle {
+            anchors.centerIn:   parent
+            width:              noVideoLabel.contentWidth + ScreenTools.defaultFontPixelHeight
+            height:             noVideoLabel.contentHeight + ScreenTools.defaultFontPixelHeight
+            radius:             ScreenTools.defaultFontPixelWidth / 2
+            color:              "black"
+            opacity:            0.5
         }
 
+        QGCLabel {
+            id:                 noVideoLabel
+            text:               QGroundControl.settingsManager.videoSettings.streamEnabled.rawValue ? qsTr("WAITING FOR VIDEO") : qsTr("VIDEO DISABLED")
+            font.bold:          true
+            color:              "white"
+            font.pointSize:     useSmallFont ? ScreenTools.smallFontPointSize : ScreenTools.largeFontPointSize
+            anchors.centerIn:   parent
+        }
+    }
+
+    // Main Video Background Container
     Rectangle {
         id:             videoBackground
         anchors.fill:   parent
         color:          "black"
-        visible:        _showStreamLoader || _showUvcLoader
+        visible:        root._anyStream
+
         function getWidth() {
-            if(_ar != 0.0){
-                if(_isMode_FIT_HEIGHT
-                        || (_isMode_FILL && (root.width/root.height < _ar))
-                        || (_isMode_NO_CROP && (root.width/root.height > _ar))){
-                    // This return value has different implications depending on the mode
-                    // For FIT_HEIGHT and FILL
-                    //    makes so the video width will be larger than (or equal to) the screen width
-                    // For NO_CROP Mode
-                    //    makes so the video width will be smaller than (or equal to) the screen width
+            if (_ar != 0.0) {
+                if (_isMode_FIT_HEIGHT || (_isMode_FILL && (root.width / root.height < _ar)) || (_isMode_NO_CROP && (root.width / root.height > _ar))) {
                     return root.height * _ar
                 }
             }
             return root.width
         }
+
         function getHeight() {
-            if(_ar != 0.0){
-                if(_isMode_FIT_WIDTH
-                        || (_isMode_FILL && (root.width/root.height > _ar))
-                        || (_isMode_NO_CROP && (root.width/root.height < _ar))){
-                    // This return value has different implications depending on the mode
-                    // For FIT_WIDTH and FILL
-                    //    makes so the video height will be larger than (or equal to) the screen height
-                    // For NO_CROP Mode
-                    //    makes so the video height will be smaller than (or equal to) the screen height
+            if (_ar != 0.0) {
+                if (_isMode_FIT_WIDTH || (_isMode_FILL && (root.width / root.height > _ar)) || (_isMode_NO_CROP && (root.width / root.height < _ar))) {
                     return root.width * (1 / _ar)
                 }
             }
             return root.height
         }
+
+        // =========================================================================
+        // STREAM 1: Primary Stream ("videoContent")
+        // =========================================================================
         Loader {
             id:                 videoStreamLoader
-            anchors.fill:       videoContentArea
+            anchors.fill:       parent
             visible:            _showStreamLoader
             sourceComponent:    videoOutputComponent
 
-            property bool videoDisabled: QGroundControl.settingsManager.videoSettings.videoSource.rawValue === QGroundControl.settingsManager.videoSettings.disabledVideoSource
+            onLoaded: { if (item) item.objectName = "videoContent" }
         }
+
         Component {
             id: videoOutputComponent
-            FlightDisplayViewVideoOutput {
-            }
+            FlightDisplayViewVideoOutput {}
         }
-        //-- UVC Video (USB Camera or Video Device)
+
+        // =========================================================================
+        // UVC Loader (USB Camera)
+        // =========================================================================
         Loader {
             id:             cameraLoader
-            anchors.fill:   videoContentArea
+            anchors.fill:   parent
             visible:        _showUvcLoader
             source:         _showUvcLoader ? "qrc:/qml/QGroundControl/FlyView/FlightDisplayViewUVC.qml" : "qrc:/qml/QGroundControl/FlyView/FlightDisplayViewDummy.qml"
         }
 
+        // On-Screen Grid Lines Overlay
         Item {
             id:                 videoContentArea
             height:             parent.getHeight()
             width:              parent.getWidth()
             anchors.centerIn:   parent
-            visible:           _showStreamLoader || _showUvcLoader
+            visible:            root._anyStream
 
-            // grid lines
             Item {
                 anchors.fill:   parent
                 visible:        _showGrid && !QGroundControl.videoManager.fullScreen
 
-                Rectangle {
-                    color:  Qt.rgba(1,1,1,0.5)
-                    height: parent.height
-                    width:  1
-                    x:      parent.width * 0.33
-                }
-                Rectangle {
-                    color:  Qt.rgba(1,1,1,0.5)
-                    height: parent.height
-                    width:  1
-                    x:      parent.width * 0.66
-                }
-                Rectangle {
-                    color:  Qt.rgba(1,1,1,0.5)
-                    width:  parent.width
-                    height: 1
-                    y:      parent.height * 0.33
-                }
-                Rectangle {
-                    color:  Qt.rgba(1,1,1,0.5)
-                    width:  parent.width
-                    height: 1
-                    y:      parent.height * 0.66
-                }
+                Rectangle { color: Qt.rgba(1,1,1,0.5); height: parent.height; width: 1; x: parent.width * 0.33 }
+                Rectangle { color: Qt.rgba(1,1,1,0.5); height: parent.height; width: 1; x: parent.width * 0.66 }
+                Rectangle { color: Qt.rgba(1,1,1,0.5); width: parent.width; height: 1; y: parent.height * 0.33 }
+                Rectangle { color: Qt.rgba(1,1,1,0.5); width: parent.width; height: 1; y: parent.height * 0.66 }
             }
         }
 
-        //-- Thermal Image
+        // Thermal Camera Overlay (Optional Stream 3)
         Item {
             id:                 thermalItem
             width:              height * QGroundControl.videoManager.thermalAspectRatio
             height:             _camera ? (_camera.thermalMode === MavlinkCameraControlInterface.THERMAL_FULL ? parent.height : (_camera.thermalMode === MavlinkCameraControlInterface.THERMAL_PIP ? ScreenTools.defaultFontPixelHeight * 12 : parent.height * _thermalHeightFactor)) : 0
             anchors.centerIn:   parent
             visible:            QGroundControl.videoManager.hasThermal && _camera && _camera.thermalMode !== MavlinkCameraControlInterface.THERMAL_OFF
-            function pipOrNot() {
-                if(_camera) {
-                    if(_camera.thermalMode === MavlinkCameraControlInterface.THERMAL_PIP) {
-                        anchors.centerIn    = undefined
-                        anchors.top         = parent.top
-                        anchors.topMargin   = mainWindow.header.height + (ScreenTools.defaultFontPixelHeight * 0.5)
-                        anchors.left        = parent.left
-                        anchors.leftMargin  = ScreenTools.defaultFontPixelWidth * 12
-                    } else {
-                        anchors.top         = undefined
-                        anchors.topMargin   = undefined
-                        anchors.left        = undefined
-                        anchors.leftMargin  = undefined
-                        anchors.centerIn    = parent
-                    }
-                }
-            }
-            Connections {
-                target:                 _camera
-                function onThermalModeChanged() { thermalItem.pipOrNot() }
-            }
-            onVisibleChanged: {
-                thermalItem.pipOrNot()
-            }
+
             Loader {
                 id:             thermalVideo
                 anchors.fill:   parent
                 opacity:        _camera ? (_camera.thermalMode === MavlinkCameraControlInterface.THERMAL_BLEND ? _camera.thermalOpacity / 100 : 1.0) : 0
                 sourceComponent: thermalOutputComponent
-                onLoaded: { if (item) item.objectName = "thermalVideo" }
+
+                onLoaded: {
+                    if (item) item.objectName = "thermalVideo"
+                }
 
                 Component {
                     id: thermalOutputComponent
@@ -205,21 +164,17 @@ Item {
                 }
             }
         }
-        //-- Zoom
+
+        // Pinch to Zoom Area
         PinchArea {
             id:             pinchZoom
             enabled:        _hasZoom
             anchors.fill:   parent
             onPinchStarted: pinchZoom.zoom = 0
             onPinchUpdated: {
-                if(_hasZoom) {
-                    var z = 0
-                    if(pinch.scale < 1) {
-                        z = Math.round(pinch.scale * -10)
-                    } else {
-                        z = Math.round(pinch.scale)
-                    }
-                    if(pinchZoom.zoom != z) {
+                if (_hasZoom) {
+                    var z = (pinch.scale < 1) ? Math.round(pinch.scale * -10) : Math.round(pinch.scale)
+                    if (pinchZoom.zoom != z) {
                         _camera.stepZoom(z)
                     }
                 }

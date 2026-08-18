@@ -15,6 +15,7 @@ qt_add_qml_module(FlyViewModule
         FixedWingChecklist.qml
         FlightDisplayViewDummy.qml
         FlightDisplayViewVideoOutput.qml
+        FlightDisplayViewVideoSecondOutput.qml
         FlightDisplayViewQtMultimedia.qml
         FlightDisplayViewUVC.qml
         FlightDisplayViewVideo.qml
@@ -38,6 +39,7 @@ qt_add_qml_module(FlyViewModule
         FlyViewTopRightColumnLayout.qml
         FlyViewTopRightPanel.qml
         FlyViewVideo.qml
+        FlyViewVideoSecond.qml
         FlyViewWidgetLayer.qml
         GuidedActionConfirm.qml
         GuidedActionLand.qml

@@ -17,6 +17,13 @@ public:
     DEFINE_SETTINGFACT(udpUrl)
     DEFINE_SETTINGFACT(tcpUrl)
     DEFINE_SETTINGFACT(rtspUrl)
+
+    //for secondVideoStream
+    DEFINE_SETTINGFACT(videoSource2)
+    DEFINE_SETTINGFACT(udpUrl2)
+    DEFINE_SETTINGFACT(tcpUrl2)
+    DEFINE_SETTINGFACT(rtspUrl2)
+    //============================
     DEFINE_SETTINGFACT(aspectRatio)
     DEFINE_SETTINGFACT(videoFit)
     DEFINE_SETTINGFACT(gridLines)
@@ -36,6 +43,9 @@ public:
     DEFINE_SETTINGFACT(disablePixelAspectRatio)
 
     Q_PROPERTY(bool     streamConfigured        READ streamConfigured       NOTIFY streamConfiguredChanged)
+    //secondStream Setup
+    Q_PROPERTY(bool streamConfigured2 READ streamConfigured2 NOTIFY streamConfigured2Changed)
+    //============================
     Q_PROPERTY(QString  rtspVideoSource         READ rtspVideoSource        CONSTANT)
     Q_PROPERTY(QString  udp264VideoSource       READ udp264VideoSource      CONSTANT)
     Q_PROPERTY(QString  udp265VideoSource       READ udp265VideoSource      CONSTANT)
@@ -44,6 +54,10 @@ public:
     Q_PROPERTY(QString  disabledVideoSource     READ disabledVideoSource    CONSTANT)
 
     bool     streamConfigured       ();
+    //secondStream bool
+    bool streamConfigured2();
+    //================
+
     QString  rtspVideoSource        () { return videoSourceRTSP; }
     QString  udp264VideoSource      () { return videoSourceUDPH264; }
     QString  udp265VideoSource      () { return videoSourceUDPH265; }
@@ -71,6 +85,7 @@ public:
 
 signals:
     void streamConfiguredChanged    (bool configured);
+        void streamConfigured2Changed   (bool configured);   // <-- add this
 
 private slots:
     void _configChanged             (QVariant value);

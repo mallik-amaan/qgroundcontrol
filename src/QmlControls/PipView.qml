@@ -8,14 +8,23 @@ Item {
     id:         _root
     width:      _pipSize
     height:     _pipSize * (9/16)
-    visible:    item2 && item2.pipState !== item2.pipState.window && show
+    visible:    show && _pipViewVisible
 
     property var    item1:                  null    // Required
     property var    item2:                  null    // Optional, may come and go
     property string item1IsFullSettingsKey          // Settings key to save whether item1 was saved in full mode
+    property bool   item1IsFullDefault:     true    // Default state of item1 when no saved setting exists
+    property string pipExpandedSettingsKey: "IsPIPVisible"
     property bool   show:                   true
+    property bool   showWhenItem1Full:      false    // Single-item mode: keep the box visible while item1 is full (used to host another pip item)
+    property bool   pipMouseEnabled:        true     // Whether the pip box can be clicked to swap items
+    property var    onPipClick:             undefined   // Optional custom click handler; overrides the default swap
 
-    readonly property string _pipExpandedSettingsKey: "IsPIPVisible"
+    // Two-item mode: the PipView box is visible whenever the pip item isn't popped out to its own window.
+    // Single-item mode (item2 == null): the box is only visible while item1 is in pip mode (or pinned visible while full).
+    readonly property bool _pipViewVisible: item2
+                                                ? item2.pipState.state !== item2.pipState.windowState
+                                                : item1 && (item1.pipState.state === item1.pipState.pipState || showWhenItem1Full)
 
     property var    _fullItem
     property var    _pipOrWindowItem
@@ -41,21 +50,27 @@ Item {
     }
 
     function _initForItems() {
-        var item1IsFull = QGroundControl.loadBoolGlobalSetting(item1IsFullSettingsKey, true)
+        var item1IsFull = QGroundControl.loadBoolGlobalSetting(item1IsFullSettingsKey, item1IsFullDefault)
         if (item1 && item2) {
             item1.pipState.state = item1IsFull ? item1.pipState.fullState : item1.pipState.pipState
             item2.pipState.state = item1IsFull ? item2.pipState.pipState : item2.pipState.fullState
             _fullItem = item1IsFull ? item1 : item2
             _pipOrWindowItem = item1IsFull ? item2 : item1
         } else {
-            item1.pipState.state = item1.pipState.fullState
+            item1.pipState.state = item1IsFull ? item1.pipState.fullState : item1.pipState.pipState
             _fullItem = item1
-            _pipOrWindowItem = null
+            _pipOrWindowItem = item1
         }
-        _setPipIsExpanded(QGroundControl.loadBoolGlobalSetting(_pipExpandedSettingsKey, true))
+        _setPipIsExpanded(QGroundControl.loadBoolGlobalSetting(pipExpandedSettingsKey, true))
     }
 
     function _swapPip() {
+        if (!item2) {
+            var wasFull = item1.pipState.state === item1.pipState.fullState
+            item1.pipState.state = wasFull ? item1.pipState.pipState : item1.pipState.fullState
+            QGroundControl.saveBoolGlobalSetting(item1IsFullSettingsKey, !wasFull)
+            return
+        }
         var item1IsFull = false
         if (item1.pipState.state === item1.pipState.fullState) {
             item1.pipState.state = item1.pipState.pipState
@@ -74,7 +89,7 @@ Item {
     }
 
     function _setPipIsExpanded(isExpanded) {
-        QGroundControl.saveBoolGlobalSetting(_pipExpandedSettingsKey, isExpanded)
+        QGroundControl.saveBoolGlobalSetting(pipExpandedSettingsKey, isExpanded)
         _isExpanded = isExpanded
     }
 
@@ -100,10 +115,16 @@ Item {
     MouseArea {
         id:             pipMouseArea
         anchors.fill:   parent
-        enabled:        _isExpanded
+        enabled:        _isExpanded && pipMouseEnabled
         preventStealing: true
         hoverEnabled:   true
-        onClicked:      _swapPip()
+        onClicked: {
+            if (onPipClick) {
+                onPipClick()
+            } else {
+                _swapPip()
+            }
+        }
     }
 
     // MouseArea to drag in order to resize the PiP area

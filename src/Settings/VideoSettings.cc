@@ -52,7 +52,7 @@ DECLARE_SETTINGGROUP(Video, "Video")
     }
 
     _nameToMetaDataMap[videoSourceName]->setEnumInfo(videoSourceCookedList, videoSourceList);
-
+    _nameToMetaDataMap[videoSource2Name]->setEnumInfo(videoSourceCookedList, videoSourceList);
     _setForceVideoDecodeList();
 
     // Migrate legacy gpuZeroCopyEnabled (pre-rename) into the new force-CPU semantics.
@@ -79,8 +79,12 @@ void VideoSettings::_setDefaults()
 {
     if (_noVideo) {
         _nameToMetaDataMap[videoSourceName]->setRawDefaultValue(videoSourceNoVideo);
+        _nameToMetaDataMap[videoSource2Name]->setRawDefaultValue(videoSourceNoVideo);
+
     } else {
         _nameToMetaDataMap[videoSourceName]->setRawDefaultValue(videoDisabled);
+        _nameToMetaDataMap[videoSource2Name]->setRawDefaultValue(videoDisabled);
+
     }
 }
 
@@ -229,6 +233,51 @@ DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, tcpUrl)
     return _tcpUrlFact;
 }
 
+//secondStreamFacts
+DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, videoSource2)
+{
+    if (!_videoSource2Fact) {
+        _videoSource2Fact = _createSettingsFact(videoSource2Name);
+        if (!_videoSource2Fact->enumValues().contains(_videoSource2Fact->rawValue().toString())) {
+            if (_noVideo) {
+                _videoSource2Fact->setRawValue(videoSourceNoVideo);
+            } else {
+                _videoSource2Fact->setRawValue(videoDisabled);
+            }
+        }
+        connect(_videoSource2Fact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+    }
+    return _videoSource2Fact;
+}
+
+DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, udpUrl2)
+{
+    if (!_udpUrl2Fact) {
+        _udpUrl2Fact = _createSettingsFact(udpUrl2Name);
+        connect(_udpUrl2Fact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+    }
+    return _udpUrl2Fact;
+}
+
+DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, rtspUrl2)
+{
+    if (!_rtspUrl2Fact) {
+        _rtspUrl2Fact = _createSettingsFact(rtspUrl2Name);
+        connect(_rtspUrl2Fact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+    }
+    return _rtspUrl2Fact;
+}
+
+DECLARE_SETTINGSFACT_NO_FUNC(VideoSettings, tcpUrl2)
+{
+    if (!_tcpUrl2Fact) {
+        _tcpUrl2Fact = _createSettingsFact(tcpUrl2Name);
+        connect(_tcpUrl2Fact, &Fact::valueChanged, this, &VideoSettings::_configChanged);
+    }
+    return _tcpUrl2Fact;
+}
+//============================================
+
 bool VideoSettings::streamConfigured(void)
 {
     //-- First, check if it's autoconfigured
@@ -278,9 +327,61 @@ bool VideoSettings::streamConfigured(void)
     return false;
 }
 
+//secondStream
+bool VideoSettings::streamConfigured2(void)
+{
+    QString vSource = videoSource2()->rawValue().toString();
+    if (vSource == videoSourceNoVideo || vSource == videoDisabled) {
+        return false;
+    }
+    //-- If UDP, check for URL
+    if (vSource == videoSourceUDPH264 || vSource == videoSourceUDPH265) {
+        return !udpUrl2()->rawValue().toString().isEmpty();
+    }
+    //-- If RTSP, check for URL
+    if (vSource == videoSourceRTSP) {
+        return !rtspUrl2()->rawValue().toString().isEmpty();
+    }
+    //-- If TCP, check for URL
+    if (vSource == videoSourceTCP) {
+        return !tcpUrl2()->rawValue().toString().isEmpty();
+    }
+    //-- If MPEG-TS, check for URL
+    if (vSource == videoSourceMPEGTS) {
+        return !udpUrl2()->rawValue().toString().isEmpty();
+    }
+    //-- If Herelink Air unit, good to go
+    if (vSource == videoSourceHerelinkAirUnit) {
+        return true;
+    }
+    //-- If Herelink Hotspot, good to go
+    if (vSource == videoSourceHerelinkHotspot) {
+        return true;
+    }
+    //-- If 3DR Solo, good to go
+    if (vSource == videoSource3DRSolo) {
+        return true;
+    }
+    //-- If Parrot Discovery, good to go
+    if (vSource == videoSourceParrotDiscovery) {
+        return true;
+    }
+    //-- If Yuneec Mantis G, good to go
+    if (vSource == videoSourceYuneecMantisG) {
+        return true;
+    }
+    if (UVCReceiver::enabled() && UVCReceiver::deviceExists(vSource)) {
+        qCDebug(VideoSettingsLog) << "Stream configured for UVC";
+        return true;
+    }
+    return false;
+}
+//=============================
 void VideoSettings::_configChanged(QVariant)
 {
     emit streamConfiguredChanged(streamConfigured());
+    emit streamConfigured2Changed(streamConfigured2());
+
 }
 
 void VideoSettings::_setForceVideoDecodeList()

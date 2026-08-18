@@ -12,9 +12,11 @@ Rectangle {
     color:              Qt.rgba(0,0,0,0.75)
     clip:               true
     anchors.centerIn:   parent
-    visible:            _videoManager.isUvc
+    visible:            cameraActive
 
     property var _videoManager: QGroundControl.videoManager
+    property string cameraSourceId: _videoManager.uvcVideoSourceID
+    property bool cameraActive: _videoManager.isUvc
 
     function adjustAspectRatio() {
         //-- Set aspect ratio
@@ -42,8 +44,8 @@ Rectangle {
     CaptureSession {
         camera: Camera {
             id:             camera
-            cameraDevice:   mediaDevices.findCameraDevice(_videoManager.uvcVideoSourceID)
-            active:         _videoManager.isUvc
+            cameraDevice:   mediaDevices.findCameraDevice(cameraSourceId)
+            active:         cameraActive
 
             onCameraDeviceChanged: {
                 if (active) {
