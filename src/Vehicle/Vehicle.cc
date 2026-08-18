@@ -586,6 +586,26 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
     this->handleMessage(this, message);
 
     switch (message.msgid) {
+        //adding new cases for custom AMAN_SENSOR_DATA
+    case MAVLINK_MSG_ID_AMAN_SENSOR_DATA:
+        {
+            mavlink_aman_sensor_data_t sensorData;
+
+            mavlink_msg_aman_sensor_data_decode(&message, &sensorData);
+
+            _amanGyroX = sensorData.gyro_x;
+            _amanGyroY = sensorData.gyro_y;
+            _amanGyroZ = sensorData.gyro_z;
+
+            _amanAccX = sensorData.acc_x;
+            _amanAccY = sensorData.acc_y;
+            _amanAccZ = sensorData.acc_z;
+
+            emit amanSensorDataChanged();
+
+            break;
+        }
+
     case MAVLINK_MSG_ID_HOME_POSITION:
         _handleHomePosition(message);
         break;

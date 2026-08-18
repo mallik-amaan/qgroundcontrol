@@ -270,6 +270,16 @@ public:
     Q_PROPERTY(QString  vehicleUIDStr               READ vehicleUIDStr              NOTIFY vehicleUIDChanged)
 
     Q_PROPERTY(VehicleSigningController* signingController READ signingController CONSTANT)
+//Aman Sensor Data Custom Property setup for reading the data from mavLink
+    Q_PROPERTY(double amanGyroX READ amanGyroX NOTIFY amanSensorDataChanged)
+    Q_PROPERTY(double amanGyroY READ amanGyroY NOTIFY amanSensorDataChanged)
+    Q_PROPERTY(double amanGyroZ READ amanGyroZ NOTIFY amanSensorDataChanged)
+
+    Q_PROPERTY(double amanAccX READ amanAccX NOTIFY amanSensorDataChanged)
+    Q_PROPERTY(double amanAccY READ amanAccY NOTIFY amanSensorDataChanged)
+    Q_PROPERTY(double amanAccZ READ amanAccZ NOTIFY amanSensorDataChanged)
+
+
 
     /// Resets link status counters
     Q_INVOKABLE void resetCounters  ();
@@ -470,6 +480,14 @@ public:
     bool sub() const;
     bool spacecraft() const;
 
+    //Custom Data Objects
+    double amanGyroX() const { return _amanGyroX; }
+    double amanGyroY() const { return _amanGyroY; }
+    double amanGyroZ() const { return _amanGyroZ; }
+
+    double amanAccX() const { return _amanAccX; }
+    double amanAccY() const { return _amanAccY; }
+    double amanAccZ() const { return _amanAccZ; }
 
 
     void setGuidedMode(bool guidedMode);
@@ -1093,6 +1111,14 @@ public:
     const QString _rpmFactGroupName =                QStringLiteral("rpm");
     const QString _radioStatusFactGroupName =        QStringLiteral("radioStatus");
 
+    double _amanGyroX = 0.0;     //Custom Public Variables for Aman Sensor Data - Gives Gyroscope X value
+    double _amanGyroY = 0.0;     //Custom Public Variables for Aman Sensor Data - Gives Gyroscope Y value
+    double _amanGyroZ = 0.0;     //Custom Public Variables for Aman Sensor Data - Gives Gyroscope Z value
+
+    double _amanAccX = 0.0;
+    double _amanAccY = 0.0;
+    double _amanAccZ = 0.0;
+
     VehicleFactGroup*               _vehicleFactGroup;
     VehicleGPSFactGroup*                _gpsFactGroup               = nullptr;
     VehicleGPS2FactGroup*               _gps2FactGroup              = nullptr;
@@ -1142,6 +1168,7 @@ public:
 signals:
     // Re-emitted from MessageIntervalManager so existing consumers keep working.
     void mavlinkMsgIntervalsChanged(uint8_t compid, uint16_t msgId, int32_t rate);
+    void amanSensorDataChanged();
 
 private:
     MessageIntervalManager* _messageIntervalManager = nullptr;
