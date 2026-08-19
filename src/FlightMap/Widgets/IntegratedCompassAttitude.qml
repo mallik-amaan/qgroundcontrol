@@ -21,7 +21,7 @@ Item {
     property var  vehicle:                      globals.activeVehicle
     property var  qgcPal:                       QGroundControl.globalPalette
     property bool usedByMultipleVehicleList:    false
-
+    property bool showBackground: true
     property real _totalAttitudeSize: attitudeSize + attitudeSpacing
 
     IntegratedAttitudeIndicator {
@@ -46,7 +46,7 @@ Item {
         width:  compassRadius * 2
         height: width
         radius: width / 2
-        color:  qgcPal.window
+        color:  showBackground ? qgcPal.window : "transparent"
 
         QGCCompassWidget {
             size:                       parent.width - compassBorder

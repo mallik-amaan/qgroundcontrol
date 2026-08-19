@@ -22,7 +22,7 @@ Item {
     property var    totalToolInsets:        _totalToolInsets
     property var    mapControl
     property var    viewer3DCameraController
-
+    property int    _showCompassAndTelemtery: 0
     property var    _activeVehicle:         QGroundControl.multiVehicleManager.activeVehicle
     property var    _planMasterController:  globals.planMasterControllerFlyView
     property var    _missionController:     _planMasterController.missionController
@@ -37,6 +37,10 @@ Item {
     property bool   _layoutSpacing:         ScreenTools.defaultFontPixelWidth
     property bool   _showSingleVehicleUI:   true
 
+    QGCPalette {
+        id: qgcPal
+    }
+
     QGCToolInsets {
         id:                     _totalToolInsets
         leftEdgeTopInset:       toolStrip.leftEdgeTopInset
@@ -48,7 +52,7 @@ Item {
         topEdgeCenterInset:     mapScale.topEdgeCenterInset
         topEdgeRightInset:      topRightPanel.topEdgeRightInset
         bottomEdgeLeftInset:    virtualJoystickMultiTouch.visible ? virtualJoystickMultiTouch.bottomEdgeLeftInset : parentToolInsets.bottomEdgeLeftInset
-        bottomEdgeCenterInset:  bottomRightRowLayout.bottomEdgeCenterInset
+        bottomEdgeCenterInset:  bottomRightRowLayout.visible ? bottomRightRowLayout.bottomEdgeCenterInset : 0
         bottomEdgeRightInset:   virtualJoystickMultiTouch.visible ? virtualJoystickMultiTouch.bottomEdgeRightInset : 0
     }
 
@@ -80,8 +84,31 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom:     parent.bottom
         spacing:            _layoutSpacing
-
+        visible:            _showCompassAndTelemtery !== 2
+        showBackground:     _showCompassAndTelemtery === 0
         property real bottomEdgeCenterInset:    height + _layoutMargin
+    }
+
+    QGCColoredImage {
+        id:                     bottomRightRowToggle
+        anchors.bottom:         bottomRightRowLayout.top
+        anchors.right:           bottomRightRowLayout.right
+        anchors.bottomMargin:   _layoutMargin
+        anchors.rightMargin:    _layoutMargin
+        width:                  ScreenTools.minTouchPixels
+        height:                 width
+        mipmap:                 true
+        sourceSize.width:       width
+        fillMode:               Image.PreserveAspectFit
+        color:                  qgcPal.text
+        source:                 _showCompassAndTelemtery === 2
+                                  ? "qrc:/InstrumentValueIcons/view-hide.svg"
+                                  : "qrc:/InstrumentValueIcons/view-show.svg"
+
+        QGCMouseArea {
+            anchors.fill:   parent
+            onClicked:      _showCompassAndTelemtery = _showCompassAndTelemtery >= 2 ? 0 : _showCompassAndTelemtery + 1
+        }
     }
 
     FlyViewMissionCompleteDialog {

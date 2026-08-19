@@ -8,11 +8,11 @@ Rectangle {
     width:  ScreenTools.defaultFontPixelHeight * 10
     height: _outerRadius * 4
     radius: _outerRadius
-    color:  QGroundControl.globalPalette.window
+    color:  showBackground ? QGroundControl.globalPalette.window : "transparent"
 
     property real extraInset:           0
     property real extraValuesWidth:     _outerRadius
-
+    property bool showBackground: true
     property real _outerMargin: (width * 0.05) / 2
     property real _outerRadius: width / 2
     property real _innerRadius: _outerRadius - _outerMargin

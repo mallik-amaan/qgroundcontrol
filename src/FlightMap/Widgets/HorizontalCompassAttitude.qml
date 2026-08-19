@@ -8,11 +8,11 @@ Rectangle {
     width:  Math.min(_defaultWidth, _maxWidth)
     height: _outerRadius * 2
     radius: _outerRadius
-    color:  qgcPal.window
+    color:  showBackground ? qgcPal.window : "transparent"
 
     property real extraInset:           0
     property real extraValuesWidth:     _outerRadius
-
+    property bool showBackground: true
     property real   _defaultWidth:      mainWindow.width * 0.2
     property real   _maxWidth:          ScreenTools.defaultFontPixelHeight * 15
     property real   _innerRadius:       (width - (_topBottomMargin * 3)) / 4

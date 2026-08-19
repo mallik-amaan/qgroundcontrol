@@ -22,7 +22,7 @@ Control {
     property Fact selectedControl               ///< Fact which has enumStrings/Values where values are the qml file for the control
     property bool selectionUIRightAnchor: false
     property var  innerControl:           loader.item
-
+    property bool showBackground: true
     property bool _showSelectionUI: false
 
     background: Item {
@@ -52,6 +52,12 @@ Control {
         Loader {
             id:     loader
             source: selectedControl ? selectedControl.rawValue : ""
+            onLoaded: {
+                  if (item && ("showBackground" in item)) {
+                      item.showBackground = Qt.binding(function() { return control.showBackground })
+                  }
+              }
+
         }
 
         QGCMouseArea {
