@@ -667,6 +667,18 @@ FlightMap {
             id: mapClickDropPanel
 
             property var mapClickCoord
+            property bool releaseShown: false
+            property bool droneCrashed: false
+
+            Connections {
+                target: _activeVehicle
+                function onPayloadReleased() {
+                    mapClickDropPanel.releaseShown = true
+                }
+                function onAttackCrashExecuted() {
+                    mapClickDropPanel.droneCrashed = true
+                }
+            }
 
             sourceComponent: Component {
                 ColumnLayout {
@@ -730,6 +742,277 @@ FlightMap {
                         onClicked: {
                             mapClickDropPanel.close()
                             globals.guidedControllerFlyView.confirmAction(globals.guidedControllerFlyView.actionSetEstimatorOrigin, mapClickCoord)
+                        }
+                    }
+
+                    QGCLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("Attack Checks")
+                        visible: _activeVehicle !== null
+                        font.bold: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCCheckBox {
+                            Layout.fillWidth: true
+                            text: qsTr("Range")
+                            checked: _activeVehicle.attackRangeCheckEnabled
+                            onClicked: _activeVehicle.attackRangeCheckEnabled = checked
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackMaxRange
+                            validator: DoubleValidator { bottom: 0; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackMaxRange = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: qsTr("m")
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCCheckBox {
+                            Layout.fillWidth: true
+                            text: qsTr("Heading")
+                            checked: _activeVehicle.attackHeadingCheckEnabled
+                            onClicked: _activeVehicle.attackHeadingCheckEnabled = checked
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackMaxHeadingAngle
+                            validator: DoubleValidator { bottom: 0; top: 180; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackMaxHeadingAngle = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: "\u00B0"
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCCheckBox {
+                            Layout.fillWidth: true
+                            text: qsTr("Elevation")
+                            checked: _activeVehicle.attackElevationAngleCheckEnabled
+                            onClicked: _activeVehicle.attackElevationAngleCheckEnabled = checked
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackMaxElevationAngle
+                            validator: DoubleValidator { bottom: 0; top: 90; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackMaxElevationAngle = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: "\u00B0"
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            text: qsTr("Drop radius")
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackDropRadius
+                            validator: DoubleValidator { bottom: 0; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackDropRadius = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: qsTr("m")
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCCheckBox {
+                            Layout.fillWidth: true
+                            text: qsTr("Drone crash mode")
+                            checked: _activeVehicle.attackCrashModeEnabled
+                            onClicked: _activeVehicle.attackCrashModeEnabled = checked
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: qsTr("Crash height")
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackCrashDisarmAltitude
+                            validator: DoubleValidator { bottom: 0; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackCrashDisarmAltitude = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: qsTr("m")
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            text: qsTr("Dive start distance")
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackDiveStartDistance
+                            validator: DoubleValidator { bottom: 0; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackDiveStartDistance = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: qsTr("m")
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null
+
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            text: qsTr("Dive speed")
+                        }
+
+                        TextField {
+                            Layout.preferredWidth: 90
+                            text: _activeVehicle.attackCrashSpeed
+                            validator: DoubleValidator { notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: if (acceptableInput) _activeVehicle.attackCrashSpeed = parseFloat(text)
+                        }
+
+                        QGCLabel {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: qsTr("m/s")
+                        }
+                    }
+
+                    QGCButton {
+                        Layout.fillWidth: true
+                        text: qsTr("Enter Attack Mode")
+                        visible: _activeVehicle !== null
+                        enabled: !_activeVehicle.attackEngagementActive
+
+                        onClicked: {
+                            _activeVehicle.beginAttackEngagement(mapClickCoord)
+                        }
+                    }
+
+                    QGCButton {
+                        Layout.fillWidth: true
+                        text: qsTr("Cancel Attack Mode")
+                        visible: _activeVehicle !== null && _activeVehicle.attackEngagementActive
+
+                        onClicked: {
+                            mapClickDropPanel.close()
+                            _activeVehicle.cancelAttackEngagement()
+                        }
+                    }
+
+                    Rectangle {
+                        id: attackStatusRect
+                        Layout.fillWidth: true
+                        visible: _activeVehicle !== null && (_activeVehicle.attackEngagementActive || mapClickDropPanel.releaseShown || mapClickDropPanel.droneCrashed)
+                        color: mapClickDropPanel.droneCrashed ? "#20a03030" : (mapClickDropPanel.releaseShown ? "#2030a030" : "#20303030")
+                        radius: 4
+                        implicitHeight: attackStatusCol.implicitHeight + ScreenTools.defaultFontPixelWidth
+
+                        ColumnLayout {
+                            id: attackStatusCol
+                            anchors.fill: parent
+                            anchors.margins: ScreenTools.defaultFontPixelWidth / 2
+                            spacing: ScreenTools.defaultFontPixelHeight / 4
+
+                            QGCLabel {
+                                text: qsTr("Attack status")
+                                font.bold: true
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                visible: _activeVehicle !== null && _activeVehicle.attackEngagementActive
+                                QGCLabel { text: qsTr("Range") }
+                                QGCLabel {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignRight
+                                    text: _activeVehicle.attackRangeCheckPassed ? qsTr("\u2713") : qsTr("\u2717")
+                                    color: _activeVehicle.attackRangeCheckPassed ? "lime" : "red"
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                visible: _activeVehicle !== null && _activeVehicle.attackEngagementActive
+                                QGCLabel {
+                                    Layout.fillWidth: true
+                                    text: qsTr("%1 / %2 m").arg(_activeVehicle.attackDistance.toFixed(0)).arg(_activeVehicle.attackMaxRange.toFixed(0))
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                visible: _activeVehicle !== null && _activeVehicle.attackEngagementActive
+                                QGCLabel { text: qsTr("Heading") }
+                                QGCLabel {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignRight
+                                    text: _activeVehicle.attackHeadingCheckPassed ? qsTr("\u2713") : qsTr("\u2717")
+                                    color: _activeVehicle.attackHeadingCheckPassed ? "lime" : "red"
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                visible: _activeVehicle !== null && _activeVehicle.attackEngagementActive
+                                QGCLabel { text: qsTr("Elevation") }
+                                QGCLabel {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignRight
+                                    text: _activeVehicle.attackElevationAngleCheckPassed ? qsTr("\u2713") : qsTr("\u2717")
+                                    color: _activeVehicle.attackElevationAngleCheckPassed ? "lime" : "red"
+                                }
+                            }
+
+                            QGCLabel {
+                                Layout.fillWidth: true
+                                text: mapClickDropPanel.droneCrashed ? qsTr("Drone crashed at target") : qsTr("Payload released")
+                                visible: mapClickDropPanel.releaseShown || mapClickDropPanel.droneCrashed
+                                font.bold: true
+                                color: mapClickDropPanel.droneCrashed ? "red" : "lime"
+                                horizontalAlignment: Text.AlignHCenter
+                            }
                         }
                     }
 

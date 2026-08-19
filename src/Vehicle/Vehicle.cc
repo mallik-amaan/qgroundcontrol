@@ -84,6 +84,7 @@
 #endif
 
 #include <QtCore/QDateTime>
+#include <QtMath>
 
 QGC_LOGGING_CATEGORY(VehicleLog, "Vehicle.Vehicle")
 
@@ -384,6 +385,380 @@ void Vehicle::_commonInit(LinkInterface* link)
 
     _createCameraManager();
 }
+
+
+void Vehicle::setAttackRangeCheckEnabled(bool enabled)
+{
+    if (_attackRangeCheckEnabled != enabled) {
+        _attackRangeCheckEnabled = enabled;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackMaxRange(double range)
+{
+    if (!qFuzzyCompare(_attackMaxRange, range)) {
+        _attackMaxRange = range;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackHeadingCheckEnabled(bool enabled)
+{
+    if (_attackHeadingCheckEnabled != enabled) {
+        _attackHeadingCheckEnabled = enabled;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackMaxHeadingAngle(double angle)
+{
+    if (!qFuzzyCompare(_attackMaxHeadingAngle, angle)) {
+        _attackMaxHeadingAngle = angle;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackElevationAngleCheckEnabled(bool enabled)
+{
+    if (_attackElevationAngleCheckEnabled != enabled) {
+        _attackElevationAngleCheckEnabled = enabled;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackMaxElevationAngle(double angle)
+{
+    if (!qFuzzyCompare(_attackMaxElevationAngle, angle)) {
+        _attackMaxElevationAngle = angle;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackDropRadius(double radius)
+{
+    if (!qFuzzyCompare(_attackDropRadius, radius)) {
+        _attackDropRadius = radius;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackCrashModeEnabled(bool enabled)
+{
+    if (_attackCrashModeEnabled != enabled) {
+        _attackCrashModeEnabled = enabled;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackDiveStartDistance(double distance)
+{
+    if (!qFuzzyCompare(_attackDiveStartDistance, distance)) {
+        _attackDiveStartDistance = distance;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackCrashDisarmAltitude(double altitude)
+{
+    if (!qFuzzyCompare(_attackCrashDisarmAltitude, altitude)) {
+        _attackCrashDisarmAltitude = altitude;
+        emit attackParametersChanged();
+    }
+}
+
+void Vehicle::setAttackCrashSpeed(double speed)
+{
+    if (!qFuzzyCompare(_attackCrashSpeed, speed)) {
+        _attackCrashSpeed = speed;
+        emit attackParametersChanged();
+    }
+}
+
+bool Vehicle::_attackElevationAngleCheck(const QGeoCoordinate& target)
+{
+    if (!coordinate().isValid() || !target.isValid()) {
+        return false;
+    }
+    const double distance = coordinate().distanceTo(target);
+    if (qIsNaN(distance)) {
+        return false;
+    }
+    if (!_attackElevationAngleCheckEnabled) {
+        // Elevation check disabled: release once the vehicle reaches the fixed drop radius.
+        return distance <= _attackDropRadius;
+    }
+    // Drop cone check: release when the target is within the allowed angle of directly
+    // below the vehicle. The angle from the vertical is 0 deg directly above the target
+    // and grows as the vehicle moves away. A larger altitude difference widens the cone
+    // at a given angle, so the drop point scales with flight altitude.
+    double targetAltitude = target.altitude();
+    if (qIsNaN(targetAltitude)) {
+        targetAltitude = coordinate().altitude();
+    }
+    const double vehicleAltitude = coordinate().altitude();
+    if (qIsNaN(targetAltitude) || qIsNaN(vehicleAltitude)) {
+        return false;
+    }
+    const double altitudeDifference = qAbs(vehicleAltitude - targetAltitude);
+    if (qFuzzyIsNull(altitudeDifference)) {
+        // No altitude difference (e.g. map-clicked target with no altitude): the cone
+        // degenerates, so fall back to the fixed drop radius.
+        return distance <= _attackDropRadius;
+    }
+    const double verticalAngle = qRadiansToDegrees(qAtan2(distance, altitudeDifference));
+    return verticalAngle <= _attackMaxElevationAngle;
+}
+
+bool Vehicle::beginAttackEngagement(const QGeoCoordinate& target)
+{
+    if (!target.isValid()) {
+        return false;
+    }
+    if (!coordinate().isValid()) {
+        return false;
+    }
+
+    // Pre-navigation range gate: refuse to navigate to a target beyond the configured range.
+    if (_attackRangeCheckEnabled) {
+        const double distance = coordinate().distanceTo(target);
+        if (!qIsNaN(distance) && distance > _attackMaxRange) {
+            QGC::showAppMessage(tr("Target is %1 m away, beyond the configured attack range of %2 m.").arg(qRound(distance)).arg(qRound(_attackMaxRange)));
+            return false;
+        }
+    }
+
+    // Pre-navigation heading gate: refuse to navigate unless the vehicle is heading toward the target.
+    if (_attackHeadingCheckEnabled) {
+        const double headingValue = heading()->rawValue().toDouble();
+        const double bearing = coordinate().azimuthTo(target);
+        double angularDifference = qAbs(bearing - headingValue);
+        if (angularDifference > 180.0) {
+            angularDifference = 360.0 - angularDifference;
+        }
+        if (qIsNaN(headingValue) || qIsNaN(bearing) || angularDifference > _attackMaxHeadingAngle) {
+            QGC::showAppMessage(tr("Vehicle heading (%1\u00B0) not aligned with target bearing (%2\u00B0), allowed within %3\u00B0.").arg(qRound(headingValue)).arg(qRound(bearing)).arg(qRound(_attackMaxHeadingAngle)));
+            return false;
+        }
+    }
+
+    // MavCommandQueue refuses to send a second DO_REPOSITION while a previous one is
+    // still awaiting its ack (e.g. from a prior attack, go-to-location or pause). That
+    // would show a confusing "Waiting on previous response to same command" error while
+    // the drone is still being driven by the earlier command. Start the engagement and
+    // defer sending the reposition until the pending command clears so retries work.
+    if (isMavCommandPending(_defaultComponentId, MAV_CMD_DO_REPOSITION)) {
+        _attackStartEngagement(target);
+        _attackSendRepositionWithRetry(target);
+        return true;
+    }
+
+    if (!guidedModeGotoLocation(target)) {
+        return false;
+    }
+
+    _attackStartEngagement(target);
+
+    // Evaluate immediately so an engagement which starts already within range can release
+    // without waiting for the next coordinate or heading update.
+    _attackEvaluateEngagement();
+    return true;
+}
+
+void Vehicle::_attackStartEngagement(const QGeoCoordinate& target)
+{
+    if (_attackEngagementActive) {
+        _attackDisconnectEngagementSignals();
+    }
+
+    _attackTarget = target;
+    _attackReleaseExecuted = false;
+    _attackEngagementActive = true;
+    _attackLastLogMs = 0;
+    _attackDistance = qQNaN();
+    _attackRangeCheckPassed = true;
+    _attackHeadingCheckPassed = true;
+    _attackElevationAngleCheckPassed = false;
+    _attackCrashDiving = false;
+
+    qCDebug(VehicleLog) << "beginAttackEngagement: navigating to target"
+                        << "target" << target
+                        << "rangeCheckEnabled" << _attackRangeCheckEnabled << "maxRange" << _attackMaxRange
+                        << "headingCheckEnabled" << _attackHeadingCheckEnabled << "maxHeadingAngle" << _attackMaxHeadingAngle
+                        << "elevationCheckEnabled" << _attackElevationAngleCheckEnabled << "maxElevationAngle" << _attackMaxElevationAngle
+                        << "dropRadius" << _attackDropRadius
+                        << "crashModeEnabled" << _attackCrashModeEnabled
+                        << "diveStartDistance" << _attackDiveStartDistance
+                        << "crashDisarmAltitude" << _attackCrashDisarmAltitude
+                        << "crashSpeed" << _attackCrashSpeed;
+
+    connect(this, &Vehicle::coordinateChanged, this, &Vehicle::_attackEvaluateEngagement);
+    _attackHeadingConnection = connect(heading(), &Fact::rawValueChanged, this, [this](const QVariant&) { _attackEvaluateEngagement(); });
+    emit attackEngagementActiveChanged();
+}
+
+void Vehicle::_attackSendRepositionWithRetry(const QGeoCoordinate& target)
+{
+    constexpr int kMaxWaitMs = 1500;
+    constexpr int kPollMs = 100;
+
+    auto waitedMs = std::make_shared<int>(0);
+    auto waitAndSend = std::make_shared<std::function<void()>>();
+    *waitAndSend = [this, target, waitedMs, waitAndSend]() {
+        if (!isMavCommandPending(_defaultComponentId, MAV_CMD_DO_REPOSITION)) {
+            // Skip sending if the engagement was cancelled or re-targeted while we waited.
+            if (_attackEngagementActive && _attackTarget == target) {
+                if (guidedModeGotoLocation(target)) {
+                    _attackEvaluateEngagement();
+                } else {
+                    _attackEngagementActive = false;
+                    _attackReleaseExecuted = false;
+                    _attackCrashDiving = false;
+                    _attackDisconnectEngagementSignals();
+                    emit attackEngagementActiveChanged();
+                }
+            }
+            return;
+        }
+        *waitedMs += kPollMs;
+        if (*waitedMs >= kMaxWaitMs) {
+            QGC::showAppMessage(
+                tr("Unable to send attack reposition command: a previous command "
+                   "is still being processed. Please try again."));
+            return;
+        }
+        QTimer::singleShot(kPollMs, this, *waitAndSend);
+    };
+    (*waitAndSend)();
+}
+
+void Vehicle::_attackDisconnectEngagementSignals()
+{
+    disconnect(this, &Vehicle::coordinateChanged, this, &Vehicle::_attackEvaluateEngagement);
+    if (_attackHeadingConnection) {
+        disconnect(_attackHeadingConnection);
+        _attackHeadingConnection = {};
+    }
+}
+
+void Vehicle::cancelAttackEngagement()
+{
+    if (!_attackEngagementActive) {
+        return;
+    }
+    _attackEngagementActive = false;
+    _attackReleaseExecuted = false;
+    _attackCrashDiving = false;
+    _attackDisconnectEngagementSignals();
+    if (_vehicleSupports->pauseVehicle()) {
+        pauseVehicle();
+        qCWarning(VehicleLog) << "cancelAttackEngagement: engagement cancelled, vehicle paused";
+    } else {
+        qCWarning(VehicleLog) << "cancelAttackEngagement: engagement cancelled (pause not supported)";
+    }
+    emit attackEngagementActiveChanged();
+}
+
+void Vehicle::_attackEvaluateEngagement()
+{
+    if (!_attackEngagementActive || _attackReleaseExecuted) {
+        return;
+    }
+    if (!coordinate().isValid() || !_attackTarget.isValid()) {
+        return;
+    }
+
+    const double distance = coordinate().distanceTo(_attackTarget);
+    if (qIsNaN(distance)) {
+        return;
+    }
+
+    _attackDistance = distance;
+    _attackElevationAngleCheckPassed = _attackElevationAngleCheck(_attackTarget);
+    emit attackEvaluationChanged();
+
+    const quint64 nowMs = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
+
+    // Crash (kamikaze) mode: the drone itself is the payload. When it comes within the
+    // dive start distance it dives to the target at ground level, then force-disarms at
+    // the configured altitude above ground to crash on the target. Monitored independently
+    // of the drop cone, which shrinks during descent.
+    if (_attackCrashModeEnabled) {
+        if (_attackCrashDiving) {
+            const double altRel = altitudeRelative()->rawValue().toDouble();
+            if (!qIsNaN(altRel) && altRel <= _attackCrashDisarmAltitude) {
+                _attackReleaseExecuted = true;
+                _attackEngagementActive = false;
+                _attackCrashDiving = false;
+                _attackDisconnectEngagementSignals();
+                sendMavCommand(_defaultComponentId, MAV_CMD_COMPONENT_ARM_DISARM, true, 0.0f, 21196.0f);  // magic number for forced in-flight disarm
+                qCWarning(VehicleLog) << "_attackEvaluateEngagement: drone crashed at target"
+                                      << "target" << _attackTarget
+                                      << "vehicle" << coordinate()
+                                      << "altitudeRelative" << altRel
+                                      << "crashDisarmAltitude" << _attackCrashDisarmAltitude;
+                emit attackCrashExecuted();
+                emit attackEngagementActiveChanged();
+            }
+            return;
+        }
+
+        if (distance <= _attackDiveStartDistance) {
+            _attackCrashDiving = true;
+            const double groundAMSL = homePosition().isValid() ? homePosition().altitude() : qQNaN();
+            if (!qIsNaN(groundAMSL)) {
+                sendMavCommand(_defaultComponentId,
+                               MAV_CMD_DO_REPOSITION,
+                               true,    // show error if fails
+                               static_cast<float>(_attackCrashSpeed),
+                               MAV_DO_REPOSITION_FLAGS_CHANGE_MODE,
+                               0.0f,
+                               qQNaN(),
+                               static_cast<float>(_attackTarget.latitude()),
+                               static_cast<float>(_attackTarget.longitude()),
+                               static_cast<float>(groundAMSL));
+                qCWarning(VehicleLog) << "_attackEvaluateEngagement: crash mode, diving to target at ground level"
+                                      << "target" << _attackTarget
+                                      << "distance" << distance
+                                      << "diveStartDistance" << _attackDiveStartDistance
+                                      << "groundAMSL" << groundAMSL
+                                      << "crashSpeed" << _attackCrashSpeed;
+            } else {
+                qCWarning(VehicleLog) << "_attackEvaluateEngagement: crash mode, home altitude unknown, cannot dive";
+            }
+        }
+        return;
+    }
+
+    if (_attackElevationAngleCheckPassed) {
+        _attackReleaseExecuted = true;
+        _attackEngagementActive = false;
+        _attackDisconnectEngagementSignals();
+        qCWarning(VehicleLog) << "_attackEvaluateEngagement: drop conditions met, releasing payload"
+                              << "target" << _attackTarget
+                              << "vehicle" << coordinate()
+                              << "distance" << distance
+                              << "elevationCheckEnabled" << _attackElevationAngleCheckEnabled
+                              << "maxElevationAngle" << _attackMaxElevationAngle
+                              << "dropRadius" << _attackDropRadius;
+        sendGripperAction(GRIPPER_ACTION_RELEASE);
+        emit payloadReleased();
+        emit attackEngagementActiveChanged();
+    } else if (nowMs - _attackLastLogMs >= 2000) {
+        _attackLastLogMs = nowMs;
+        qCDebug(VehicleLog) << "_attackEvaluateEngagement: drop conditions not met, holding release"
+                            << "target" << _attackTarget
+                            << "vehicle" << coordinate()
+                            << "distance" << distance
+                            << "elevationCheckEnabled" << _attackElevationAngleCheckEnabled
+                            << "maxElevationAngle" << _attackMaxElevationAngle
+                            << "dropRadius" << _attackDropRadius;
+    }
+}
+
+
+
+
 
 Vehicle::~Vehicle()
 {

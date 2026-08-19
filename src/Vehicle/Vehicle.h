@@ -760,13 +760,139 @@ public:
 
     GimbalController* gimbalController  () { return _gimbalController; }
 
+    //FOR DOUBLE_TAP EXECUTE ACTION-ATTACK
+    Q_PROPERTY(bool attackRangeCheckEnabled
+                   READ attackRangeCheckEnabled
+                       WRITE setAttackRangeCheckEnabled
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackMaxRange
+                   READ attackMaxRange
+                       WRITE setAttackMaxRange
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(bool attackHeadingCheckEnabled
+                   READ attackHeadingCheckEnabled
+                       WRITE setAttackHeadingCheckEnabled
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackMaxHeadingAngle
+                   READ attackMaxHeadingAngle
+                       WRITE setAttackMaxHeadingAngle
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(bool attackElevationAngleCheckEnabled
+                   READ attackElevationAngleCheckEnabled
+                       WRITE setAttackElevationAngleCheckEnabled
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackMaxElevationAngle
+                   READ attackMaxElevationAngle
+                       WRITE setAttackMaxElevationAngle
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackDropRadius
+                   READ attackDropRadius
+                       WRITE setAttackDropRadius
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(bool attackCrashModeEnabled
+                   READ attackCrashModeEnabled
+                       WRITE setAttackCrashModeEnabled
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackDiveStartDistance
+                   READ attackDiveStartDistance
+                       WRITE setAttackDiveStartDistance
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackCrashDisarmAltitude
+                   READ attackCrashDisarmAltitude
+                       WRITE setAttackCrashDisarmAltitude
+                           NOTIFY attackParametersChanged)
+
+    Q_PROPERTY(double attackCrashSpeed
+                   READ attackCrashSpeed
+                       WRITE setAttackCrashSpeed
+                           NOTIFY attackParametersChanged)
+
+    bool attackRangeCheckEnabled() const { return _attackRangeCheckEnabled; }
+    double attackMaxRange() const { return _attackMaxRange; }
+
+    bool attackHeadingCheckEnabled() const { return _attackHeadingCheckEnabled; }
+    double attackMaxHeadingAngle() const { return _attackMaxHeadingAngle; }
+
+    bool attackElevationAngleCheckEnabled() const { return _attackElevationAngleCheckEnabled; }
+    double attackMaxElevationAngle() const { return _attackMaxElevationAngle; }
+    double attackDropRadius() const { return _attackDropRadius; }
+
+    bool attackCrashModeEnabled() const { return _attackCrashModeEnabled; }
+    double attackDiveStartDistance() const { return _attackDiveStartDistance; }
+    double attackCrashDisarmAltitude() const { return _attackCrashDisarmAltitude; }
+    double attackCrashSpeed() const { return _attackCrashSpeed; }
+
+    void setAttackRangeCheckEnabled(bool enabled);
+    void setAttackMaxRange(double range);
+
+    void setAttackHeadingCheckEnabled(bool enabled);
+    void setAttackMaxHeadingAngle(double angle);
+
+    void setAttackElevationAngleCheckEnabled(bool enabled);
+    void setAttackMaxElevationAngle(double angle);
+    void setAttackDropRadius(double radius);
+
+    void setAttackCrashModeEnabled(bool enabled);
+    void setAttackDiveStartDistance(double distance);
+    void setAttackCrashDisarmAltitude(double altitude);
+    void setAttackCrashSpeed(double speed);
+
+    Q_INVOKABLE bool beginAttackEngagement(const QGeoCoordinate& target);
+    Q_INVOKABLE void cancelAttackEngagement();
+
+    Q_PROPERTY(bool attackEngagementActive
+                   READ attackEngagementActive
+                       NOTIFY attackEngagementActiveChanged)
+
+    Q_PROPERTY(double attackDistance
+                   READ attackDistance
+                       NOTIFY attackEvaluationChanged)
+
+    Q_PROPERTY(bool attackRangeCheckPassed
+                   READ attackRangeCheckPassed
+                       NOTIFY attackEvaluationChanged)
+
+    Q_PROPERTY(bool attackHeadingCheckPassed
+                   READ attackHeadingCheckPassed
+                       NOTIFY attackEvaluationChanged)
+
+    Q_PROPERTY(bool attackElevationAngleCheckPassed
+                   READ attackElevationAngleCheckPassed
+                       NOTIFY attackEvaluationChanged)
+
+    bool attackEngagementActive() const { return _attackEngagementActive; }
+
+    double attackDistance() const { return _attackDistance; }
+    bool attackRangeCheckPassed() const { return _attackRangeCheckPassed; }
+    bool attackHeadingCheckPassed() const { return _attackHeadingCheckPassed; }
+    bool attackElevationAngleCheckPassed() const { return _attackElevationAngleCheckPassed; }
+
+    //+++++++++++END OF DOUBLE-TAP++++++++
+
+
 public slots:
     void setVtolInFwdFlight                 (bool vtolInFwdFlight);
     void _offlineFirmwareTypeSettingChanged (QVariant varFirmwareType); // Should only be used by MissionControler to set firmware from Plan file
     void _offlineVehicleTypeSettingChanged  (QVariant varVehicleType);  // Should only be used by MissionController to set vehicle type from Plan file
     Q_INVOKABLE void sendGripperAction(GRIPPER_ACTIONS gripperOption);
-
 signals:
+    //DOUBLE TAP ATTACK SIGNAL
+    void attackParametersChanged();
+    void attackEngagementActiveChanged();
+    void attackEvaluationChanged();
+    void payloadReleased();
+    void attackCrashExecuted();
+    //++++++++++++++++++++++++
+
     void coordinateChanged              (QGeoCoordinate coordinate);
     void mavlinkMessageReceived         (const mavlink_message_t& message);
     void homePositionChanged            (const QGeoCoordinate& homePosition);
@@ -895,6 +1021,44 @@ private:
     void _handleGimbalOrientation       (const mavlink_message_t& message);
     void _handleObstacleDistance        (const mavlink_message_t& message);
     void _handleFenceStatus             (const mavlink_message_t& message);
+    //PRIVATE VARS FOR DOUBLE TAP ATTACK
+
+    bool   _attackRangeCheckEnabled           = true;
+    double _attackMaxRange                    = 500.0;
+
+    bool   _attackHeadingCheckEnabled         = true;
+    double _attackMaxHeadingAngle             = 15.0;
+
+    bool   _attackElevationAngleCheckEnabled  = true;
+    double _attackMaxElevationAngle           = 30.0;
+    double _attackDropRadius                  = 50.0;
+
+    bool   _attackCrashModeEnabled            = false;
+    double _attackDiveStartDistance           = 200.0;
+    double _attackCrashDisarmAltitude         = 3.0;
+    double _attackCrashSpeed                  = -1.0;
+    bool   _attackCrashDiving                 = false;
+
+    bool _attackElevationAngleCheck(const QGeoCoordinate& target);
+
+    void _attackStartEngagement(const QGeoCoordinate& target);
+    void _attackSendRepositionWithRetry(const QGeoCoordinate& target);
+    void _attackEvaluateEngagement();
+    void _attackDisconnectEngagementSignals();
+
+    QGeoCoordinate _attackTarget;
+    bool           _attackEngagementActive  = false;
+    bool           _attackReleaseExecuted   = false;
+    quint64        _attackLastLogMs         = 0;
+    QMetaObject::Connection _attackHeadingConnection;
+
+    double _attackDistance                    = qQNaN();
+    bool   _attackRangeCheckPassed            = false;
+    bool   _attackHeadingCheckPassed          = false;
+    bool   _attackElevationAngleCheckPassed   = false;
+
+    //++++++++++++++++++++++++++++++++++++++
+
 
     // ArduPilot dialect messages
 #if !defined(QGC_NO_ARDUPILOT_DIALECT)
