@@ -117,6 +117,10 @@ Item {
         rallyPointController:   _rallyPointController
     }
 
+    AttackStatusPanel {
+        z: QGroundControl.zOrderTopMost
+    }
+
     // Prevent the map's PinchHandler from stealing touch grabs from the joystick pads (issue #13450)
     Binding {
         target:   mapControl
