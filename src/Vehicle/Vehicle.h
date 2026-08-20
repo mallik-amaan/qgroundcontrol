@@ -1051,6 +1051,7 @@ private:
     bool           _attackReleaseExecuted   = false;
     quint64        _attackLastLogMs         = 0;
     QMetaObject::Connection _attackHeadingConnection;
+    QMetaObject::Connection _attackAltitudeConnection;
 
     double _attackDistance                    = qQNaN();
     bool   _attackRangeCheckPassed            = false;

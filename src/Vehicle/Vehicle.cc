@@ -594,6 +594,7 @@ void Vehicle::_attackStartEngagement(const QGeoCoordinate& target)
 
     connect(this, &Vehicle::coordinateChanged, this, &Vehicle::_attackEvaluateEngagement);
     _attackHeadingConnection = connect(heading(), &Fact::rawValueChanged, this, [this](const QVariant&) { _attackEvaluateEngagement(); });
+    _attackAltitudeConnection = connect(altitudeRelative(), &Fact::rawValueChanged, this, [this](const QVariant&) { _attackEvaluateEngagement(); });
     emit attackEngagementActiveChanged();
 }
 
@@ -638,6 +639,10 @@ void Vehicle::_attackDisconnectEngagementSignals()
     if (_attackHeadingConnection) {
         disconnect(_attackHeadingConnection);
         _attackHeadingConnection = {};
+    }
+    if (_attackAltitudeConnection) {
+        disconnect(_attackAltitudeConnection);
+        _attackAltitudeConnection = {};
     }
 }
 
